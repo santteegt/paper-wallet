@@ -3,3 +3,6 @@ addresses.txt
 node_modules
 generated*
 *.svg
+*.pdf
+*/*.jpg
+.DS_Store

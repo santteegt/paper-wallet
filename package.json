@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "eslint": "./node_modules/eslint/bin/eslint.js --quiet --config .eslintrc.js ./*.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -18,10 +19,20 @@
   "description": "",
   "dependencies": {
     "base64url": "^3.0.1",
+    "commander": "^2.19.0",
     "dotenv": "^6.2.0",
+    "easy-pdf-merge": "^0.2.1",
     "ethereumjs-util": "^6.0.0",
     "html-pdf": "^2.2.0",
     "qr-image": "^3.2.0",
     "web3": "^1.0.0-beta.37"
+  },
+  "devDependencies": {
+    "eslint": "^5.15.3",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-node": "^8.0.1",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-standard": "^4.0.0"
   }
 }

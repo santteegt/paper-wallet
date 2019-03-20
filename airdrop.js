@@ -9,14 +9,26 @@ const { BN, fromWei, toWei } = Web3.utils;
 require('dotenv').config();
 const ethereumjsutil = require("ethereumjs-util")
 const fs = require("fs")
+const program = require ("commander")
+
+program
+    .version("0.0.1", "-v", "--version")
+    .description("Airdrop some xDAI and ERC20 tokens to wallet accounts listed on addresses.txt")
+    .option("-c, --check", "Check current wallet balances. (Default: false)")
+    .option("-dr, --dry-run", "Execute airdrop simulation. (Default: false)")
+    .option("-t, --test", "Sends small dust amounts instead of the real airdrop amount. (Default: false)")
+    .option("-p, --provider <provider>", "Network RPC URL. (Default: https://dai.poa.network)")
+    .option("--xdai <xdai_amount>", "Amount of xDAI to airdrop to each account. (Default: 0.01)")
+    .option("--erc20 <erc20_amount>", "Amount of ERC-20 tokens to airdrop to each account. (Default: 10)")
+    .parse(process.argv)
 
 const CONFIG = {
-  justChecking: true, //True if you only want to check balances of all accounts
-  dryRun: true, //Tells you what it would do without actually sending any txs
-  testRun: false, //Sends small dust amounts instead of the real airdrop amount
+  justChecking: program.check || false, // True if you only want to check balances of all accounts
+  dryRun: program.dryRun || false, // Tells you what it would do without actually sending any txs
+  testRun: program.test || false, //Sends small dust amounts instead of the real airdrop amount
   provider: 'https://dai.poa.network',
-  erc20ContractAddr: '0xDec31651Bec1fBbFF392aa7DE956d6EE4559498b', //Contract addr for the ERC20 token
-  erc20Abi: require('./contracts/Burner.abi'),
+  erc20ContractAddr: fs.readFileSync('./contracts/Burner.address').toString().trim(), //Contract addr for the ERC20 token. e.g. ERC20Vendable for the burner wallet
+  erc20Abi: require('./contracts/Burner.abi'), // ERC20 contract ABI
   sendingPk: process.env.SENDING_PK,
   sendingAccount: "0x"+ethereumjsutil.privateToAddress(process.env.SENDING_PK).toString('hex'),
   erc20SendGas: 75034,
@@ -28,11 +40,12 @@ const CONFIG = {
 //console.log(CONFIG)
 //process.exit(1)
 
+const AMOUNT_OF_BURN_TO_SEND = CONFIG.testRun ? toWei('1', 'wei') : toWei(program.xdai || '10', 'ether')
+const AMOUNT_OF_XDAI_TO_SEND = CONFIG.testRun ? toWei('1', 'wei') : toWei(program.erc20 || '0.01', 'ether')
+
 const web3 = new Web3(new Web3.providers.HttpProvider(CONFIG.provider));
 let ERC20 = new web3.eth.Contract(CONFIG.erc20Abi, CONFIG.erc20ContractAddr);
 
-const AMOUNT_OF_BURN_TO_SEND = CONFIG.testRun ? toWei('1', 'wei') : toWei('10', 'ether')
-const AMOUNT_OF_XDAI_TO_SEND = CONFIG.testRun ? toWei('1', 'wei') : toWei('0.01', 'ether')
 
 function main() {
   let accounts = fs.readFileSync("./addresses.txt").toString().trim().split("\n")
@@ -63,18 +76,16 @@ async function airDrop(accounts) {
 
   console.log(`Airdropping ${accounts.length} accounts`)
 
-  web3.eth.getTransactionCount(CONFIG.sendingAccount).then(nonce => {
-    console.log('Nonce: ', nonce);
+  let nonce = await web3.eth.getTransactionCount(CONFIG.sendingAccount)
+  console.log('Nonce: ', nonce);
 
-    for(let i = 0; i < accounts.length; i++) {
-      console.log('AMOUNT_OF_BURN_TO_SEND: ', AMOUNT_OF_BURN_TO_SEND);
-      console.log('AMOUNT_OF_XDAI_TO_SEND: ', AMOUNT_OF_XDAI_TO_SEND);
+  for(let i = 0; i < accounts.length; i++) {
+    console.log('AMOUNT_OF_BURN_TO_SEND: ', AMOUNT_OF_BURN_TO_SEND);
+    console.log('AMOUNT_OF_XDAI_TO_SEND: ', AMOUNT_OF_XDAI_TO_SEND);
 
-      sendXDai(accounts[i], nonce++);
-      sendErc20(accounts[i], nonce++);
-    }
-
-  })
+    await sendXDai(accounts[i], nonce++);
+    await sendErc20(accounts[i], nonce++);
+  }
 }
 
 function expectedGasCosts() {
@@ -118,7 +129,7 @@ function checkErc20Balance(account) {
   return ERC20.methods.balanceOf(account).call();
 }
 
-function sendXDai(to, nonce) {
+async function sendXDai(to, nonce) {
   let tx = {
     to: to,
     value: AMOUNT_OF_XDAI_TO_SEND,
@@ -128,15 +139,18 @@ function sendXDai(to, nonce) {
   }
 
   if(CONFIG.dryRun === false) {
-    web3.eth.accounts.signTransaction(tx, CONFIG.sendingPk).then(signed => {
+    try {
+        let signed = await web3.eth.accounts.signTransaction(tx, CONFIG.sendingPk)
         web3.eth.sendSignedTransaction(signed.rawTransaction).on('receipt', console.log);
-    });
+    } catch(e) {
+        console.log(`Error trying to send xDAI to wallet {tx.to}`, e)
+    }
   } else {
     console.log("Dry run enabled. Would have sent tx: ", tx)
   }
 }
 
-function sendErc20(to, nonce) {
+async function sendErc20(to, nonce) {
   let data = ERC20.methods.transfer(to, AMOUNT_OF_BURN_TO_SEND).encodeABI()
 
   let tx = {
@@ -148,9 +162,12 @@ function sendErc20(to, nonce) {
   }
 
   if(CONFIG.dryRun === false) {
-    web3.eth.accounts.signTransaction(tx, CONFIG.sendingPk).then(signed => {
+    try {
+        let signed = await web3.eth.accounts.signTransaction(tx, CONFIG.sendingPk)
         web3.eth.sendSignedTransaction(signed.rawTransaction).on('receipt', console.log);
-    });
+    } catch(e) {
+        console.log(`Error trying to send ERC-20 tokens to wallet ${tx.to}`, e)
+    }
   } else {
     console.log("Dry run enabled. Would have sent tx: ", tx)
   }
