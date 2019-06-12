@@ -31,7 +31,7 @@ Options:
   -h, --help                output usage information
 ```
 
-This will generate a directory with files called `generated-{i}.html` that can be printed. Wallet addresses are appended into `addresses.txt`
+This will generate a directory with files called `generated-{i}.html` that can be printed. Wallet addresses are appended into `addresses-*.txt`
 
 You could also just print out `private-{i}.svg` if you are in a pinch.
 

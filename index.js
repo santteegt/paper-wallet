@@ -17,8 +17,10 @@ program
   .option('--height <height>', 'Paper wallet height')
   .parse(process.argv)
 
+const GEN_DATE = (new Date()).toISOString().replace(/[\:\.]/g,'')
+const ADDR_FILE = `addresses-${GEN_DATE}.txt`
 const TO_PRINT = program.N || 1
-const WALLET = 'burn'
+const WALLET = `burn-${GEN_DATE}`
 const URL = program.url || 'https://burnerwallet.io'
 const BACKGROUND = program.template || 'cspaperwallet.jpg'
 const COMPRESS = true
@@ -36,7 +38,7 @@ function generatePaperWallet (id, publicAddress) {
     result = result.replace(/\*\*BACKGROUND\*\*/g, BACKGROUND)
     fs.writeFile(`${WALLET}/generated-${id}.html`, result, 'utf8', (err) => {
       if (err) return console.log(err)
-      fs.appendFile(`addresses.txt`, publicAddress + '\n', (err) => {
+      fs.appendFile(ADDR_FILE, publicAddress + '\n', (err) => {
         if (err) throw err
       })
     })
@@ -69,7 +71,7 @@ if (program.print) {
     process.exit(0)
   }
 
-  console.log('\nGenerating printer-ready PDFs...\n')
+  console.log('\nGenerating a printer-ready PDF...\n')
   files.forEach(file => {
     let html = fs.readFileSync(`${WALLET}/${file}`, 'utf8')
 
@@ -133,4 +135,5 @@ if (program.print) {
       console.log(err)
     }
   }
+  console.log(`Generated wallet addresses can be found at ${ADDR_FILE}\nDone.`)
 }
